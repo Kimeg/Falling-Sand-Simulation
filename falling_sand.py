@@ -99,7 +99,7 @@ def main():
 		click = pg.mouse.get_pressed()
 		if any(click):
 			adjustColor()
-			applyColor()
+			applyColor(grid)
 
 		''' Update positions of each grain of sand '''
 		update(grid)
@@ -130,6 +130,8 @@ if __name__=="__main__":
 		"G": 100,
 		"B": 80,
 	}
+
+	BLACK = (0, 0, 0)
 
 	pg.init()
 	window = pg.display.set_mode((WIDTH, HEIGHT))
