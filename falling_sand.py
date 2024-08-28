@@ -15,43 +15,70 @@ def isValidIndex(x: int, y: int):
 	'''
 	return (x>=0) and (x<nX) and (y>=0) and (y<nY)
 
-def adjustColor():
+def adjustColor(SAND_SIZE: int):
 	'''
 	Adjust global RGB values while mouse being pressed 
 	'''
 	for channel in COLORS:
-		COLORS[channel] += random.choice([-1, 1])*random.randint(1, 5)
+		COLORS[channel] += random.choice([-1, 1])*random.randint(SAND_SIZE, 5*SAND_SIZE)
 
 		if COLORS[channel]>255 or COLORS[channel]<0:
 			COLORS[channel] = random.randint(0, 255)
 	return
 
-def applyColor(grid: list):
+def toggleSand(grid: list, sand_size: int, nSand: int, mode: str):
 	pos = pg.mouse.get_pos()
 
 	x = int(nX*pos[0]/WIDTH)
 	y = int(nY*pos[1]/HEIGHT)
 
-	if isValidIndex(x, y):
-		color = (
-			COLORS["R"],
-			COLORS["G"],
-			COLORS["B"],
-		)
+	color = (
+		COLORS["R"],
+		COLORS["G"],
+		COLORS["B"],
+	)
 
-		grid[y][x] = Sand(color)
-	return
+	for i in range(sand_size*2+1):
+		i -= sand_size
 
-def toggleObstacle(grid: list, value: int):
+		for j in range(sand_size*2+1):
+			j -= sand_size
+
+			if isValidIndex(x+j, y+i):
+				if mode=="ON":
+					if grid[y+i][x+j]==0:
+						grid[y+i][x+j] = Sand(color)
+						nSand += 1
+				elif mode=="OFF":
+					if isinstance(grid[y+i][x+j], Sand):
+						grid[y+i][x+j] = 0 
+						nSand -= 1
+	return nSand
+
+def toggleObstacle(grid: list, obstacle_size: int, value: int, nObstacle: int):
 	pos = pg.mouse.get_pos()
 
 	x = int(nX*pos[0]/WIDTH)
 	y = int(nY*pos[1]/HEIGHT)
 
-	if isValidIndex(x, y):
-		if not isinstance(grid[y][x], Sand):
-			grid[y][x] = value
-	return
+
+	for i in range(obstacle_size*2+1):
+		i -= obstacle_size
+
+		for j in range(obstacle_size*2+1):
+			j -= obstacle_size
+
+			if isValidIndex(x+j, y+i):
+				if not isinstance(grid[y+i][x+j], Sand):
+					if value==1:
+						if grid[y+i][x+j]==0:
+							nObstacle += 1
+					elif value==0:
+						if grid[y+i][x+j]==1:
+							nObstacle -= 1
+
+					grid[y+i][x+j] = value
+	return nObstacle
 
 def update(grid: list):
 	''' Iterate through each cell in the grid '''
@@ -92,6 +119,11 @@ def update(grid: list):
 						grid[i][j] = 0
 	return
 
+def renderText(value: str, x: int, y: int):
+	ts = font.render(value, False, WHITE)
+	window.blit(ts, (x, y))
+	return
+
 def render(grid: list):
 	for i in range(nY):
 		for j in range(nX):
@@ -103,6 +135,21 @@ def render(grid: list):
 	return
 
 def main():
+	''' Resizes the area clicked for Sand object generation	'''
+	SAND_SIZE = 1 
+
+	''' Resizes the area clicked for obstacle generation '''
+	OBSTACLE_SIZE = 1
+
+	''' Total number of Sand objects '''
+	nSand = 0
+
+	''' Total number of Sand objects '''
+	nObstacle = 0
+
+	''' Generates Sand objects if mode=="on" else deletes them '''
+	mode = "ON"
+
 	''' Grid used to store all sand objects '''
 	grid = [[0 for _ in range(nX)] for _ in range(nY)]
 
@@ -112,6 +159,25 @@ def main():
 			if event.type==pg.QUIT:
 				is_running = False
 				break
+			elif event.type==pg.KEYDOWN:
+				if event.key==pg.K_a:
+					if SAND_SIZE>1:
+						SAND_SIZE -= 1 
+				if event.key==pg.K_s:
+					if SAND_SIZE<5:
+						SAND_SIZE += 1
+				if event.key==pg.K_z:
+					if OBSTACLE_SIZE>1:
+						OBSTACLE_SIZE -= 1
+				if event.key==pg.K_x:
+					if OBSTACLE_SIZE<5:
+						OBSTACLE_SIZE += 1
+				if event.key==pg.K_d:
+					mode = "ON" if mode=="OFF" else "OFF"
+				if event.key==pg.K_r:
+					grid = [[0 for _ in range(nX)] for _ in range(nY)]
+					nSand = 0
+					nObstacle = 0
 
 		window.fill(BLACK)
 
@@ -121,20 +187,26 @@ def main():
 			Generate grains of sand using left mouse button.
 			Colors change per frame while button being pressed.
 			'''
-			adjustColor()
-			applyColor(grid)
+			adjustColor(SAND_SIZE)
+			nSand = toggleSand(grid, SAND_SIZE, nSand, mode)
 		elif click[1]:
 			''' Delete obstacles using middle mouse button '''
-			toggleObstacle(grid, 0)	
+			nObstacle = toggleObstacle(grid, OBSTACLE_SIZE, 0, nObstacle)
 		elif click[2]:
 			''' Generate obstacles using right mouse button '''
-			toggleObstacle(grid, 1)	
+			nObstacle = toggleObstacle(grid, OBSTACLE_SIZE, 1, nObstacle)
 
 		''' Update positions of each grain of sand '''
 		update(grid)
 
 		''' Render sand '''
 		render(grid)
+		renderText(f"Total number of objects : {nSand+nObstacle}", 10, 10)
+		renderText(f"Number of Sand objects  : {nSand}", 10, 30)
+		renderText(f"Number of ostacles      : {nObstacle}", 10, 50)
+		renderText(f"Sand cursor size        : {SAND_SIZE}", 10, 70)
+		renderText(f"Obstacle cursor size    : {OBSTACLE_SIZE}", 10, 90)
+		renderText(f"Sand toggle mode        : {mode}", 10, 110)
 
 		pg.display.flip()
 
@@ -167,8 +239,10 @@ if __name__=="__main__":
 	BLACK = (0, 0, 0)
 
 	pg.init()
-	window = pg.display.set_mode((WIDTH, HEIGHT))
+	pg.font.init()
 	pg.display.set_caption("Sand Simulation")
+	window = pg.display.set_mode((WIDTH, HEIGHT))
+	font = pg.font.Font("lemon.ttf", 15)
 
 	main()
 
